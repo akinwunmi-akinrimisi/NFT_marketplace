@@ -43,6 +43,7 @@ contract NFTMarketplace is ERC721, Ownable {
     event NFTListed(address indexed seller, uint256 indexed tokenId, uint256 price, uint256 duration);
     event NFTMinted(address indexed minter, unit256 indexed tokenId, string tokenURI);
     event NFTSold(address indexed seller, address indexed buyer, uint256 indexed tokenId, uint256 price);
+    event ProceedsWithdrawn(address indexed seller, uint256 amount);
 
     function mintNFT(address to, sring memory tokenURI) public {
         require(to != address(0), "Cannot mint to zero address");
@@ -127,9 +128,23 @@ contract NFTMarketplace is ERC721, Ownable {
 
         //Emit the NFTSold event
         emit NFTSold(seller, msg.sender, tokenId, price);
-        
 }
 
+
+    function withdrawProceeds() public {
+        //Check that the seller has a positive balance
+        uint256 proceeds = _proceeds[msg.sender];
+        require(proceeds > 0, "No proceeds to withdraw");
+
+        //Reset the seller's balance before transferring to prevent reentrancy attacks
+        _proceeds[msg.sender] = 0;
+
+        //Transfer the proceeds to the seller
+        (bool success, ) = msg.sender.call{value: proceeds}("");
+        require(success, "Transfer failed");
+
+        emit ProceedsWithdrawn(msg.sender, proceeds);
+    }
 
 
 
