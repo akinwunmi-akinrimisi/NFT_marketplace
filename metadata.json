@@ -1,0 +1,19 @@
+{
+    "name": "MarketPlace NFT",
+    "description": "This is a VIP ticket for an exclusive event.",
+    "image": "https://ipfs.io/ipfs/QmZLdHha1Zip7my9JsuyRfGp7EPP2fm4Crv2KJes8QQuXY",
+    "attributes": [
+      {
+        "trait_type": "Seat",
+        "value": "Front Row"
+      },
+      {
+        "trait_type": "Access",
+        "value": "Seller"
+      }
+    ]
+  }
+  
+
+// "https://ipfs.io/ipfs/QmbDTGehF6Q1tU5uYbo8JJWDbnuVoiWv41UqqJdivTqF7q",
+  

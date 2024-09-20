@@ -33,5 +33,36 @@ contract NFTMarketplace is ERC721, Ownable {
         _marketplaceFee = 2;  // Default marketplace fee of 2%
     }
 
+    event NFTMinted(address indexed minter, unit256 indexed tokenId, string tokenURI);
+
+    function mintNFT(address to, sring memory tokenURI) public {
+        require(to != address(0), "Cannot mint to zero address");
+        require(msg.value == mintingFee, "Incorrect minting fee sent");
+        require(_sellers[msg.sender].totalMintedNFTS < maxMintsPerAddress, "Minting limit reached for this address");
+        require(_numberOfMintedNFTs < maxSupply, "Maximum NFT supply reached");
+
+        require(bytes(tokenURI).length > 0, "Metadata URI must be provided");
+
+        for (uint256 i = 1; i <= _tokenIdCounter; i++) {
+        require(keccak256(abi.encodePacked(_tokenURIs[i])) != keccak256(abi.encodePacked(tokenURI)), "Token URI already exists");
+    }
+
+        _tokenIdCounter += 1;
+        uint256 newTokenId = _tokenIdCounter;
+
+        _safeMint(to, newTokenId);
+        _setTokenURI(newTokenId, tokenURI);
+
+        _numberOfMintedNFTs += 1;
+        _sellers[to].totalMintedNFTS +=1;
+
+        emit NFTMinted(to, newTokenId, tokenURI);
+    }
+
+    function _setTokenURI(uint256 tokenId, string memory tokenURI) internal{
+        require(_exist(tokenId), "nonexistent tokenId");
+        _tokenURIs[tokenId] = tokenURI;
+    }
    
+
 }
