@@ -25,6 +25,14 @@ contract NFTMarketplace is ERC721, Ownable {
         address[] listOfCustomers; // List of customer addresses
     }
 
+    struct NFT {
+        uint256 price;          // Price of the NFT
+        uint256 expiration;     // Expiration timestamp for the listing
+        address owner;          // Original owner of the NFT
+        bool listed;            // Whether the NFT is currently listed
+    }
+
+
     mapping(uint256 => string) public _tokenURIs;  // Mapping of tokenId to IPFS URIs
     mapping(address => uint256) public _proceeds;  // Tracks proceeds for each seller
     mapping(uint256 => uint256) public _tokenPrices;  // tokenId to sale price
@@ -33,6 +41,7 @@ contract NFTMarketplace is ERC721, Ownable {
     mapping(address => Seller) public _sellers;  // Mapping of seller addresses to their sales details
     mapping(address => bool) public _sellerHasListedBefore;  // Tracks if a seller has been counted as a unique seller
     mapping(uint256 => uint256) public _listingExpiration;   // Mapping to store listing expiration timestamps for each tokenId
+    mapping(uint256 => NFT) public nfts; // Mapping from tokenId to the NFT struct
 
     constructor() ERC721("NFT Marketplace", "NFTM") {
         _admin = msg.sender;  // Assign the contract deployer as the admin
@@ -44,6 +53,7 @@ contract NFTMarketplace is ERC721, Ownable {
     event NFTMinted(address indexed minter, unit256 indexed tokenId, string tokenURI);
     event NFTSold(address indexed seller, address indexed buyer, uint256 indexed tokenId, uint256 price);
     event ProceedsWithdrawn(address indexed seller, uint256 amount);
+    event NFTDelisted(address indexed owner, uint256 indexed tokenId);
 
     function mintNFT(address to, sring memory tokenURI) public {
         require(to != address(0), "Cannot mint to zero address");
@@ -52,6 +62,8 @@ contract NFTMarketplace is ERC721, Ownable {
         require(_numberOfMintedNFTs < maxSupply, "Maximum NFT supply reached");
 
         require(bytes(tokenURI).length > 0, "Metadata URI must be provided");
+        require(block.timestamp >= _listingExpiration[tokenId], "Listing duration has not expired yet");
+
 
         for (uint256 i = 1; i <= _tokenIdCounter; i++) {
         require(keccak256(abi.encodePacked(_tokenURIs[i])) != keccak256(abi.encodePacked(tokenURI)), "Token URI already exists");
@@ -144,6 +156,62 @@ contract NFTMarketplace is ERC721, Ownable {
         require(success, "Transfer failed");
 
         emit ProceedsWithdrawn(msg.sender, proceeds);
+    }
+
+    function delistNFT(uint256 tokenId) public {
+        
+        require(ownerOf(tokenId) == address(this), "NFT is not held by the contract");
+        require(_listedTokens[tokenId], "This NFT is not currently listed for sale");
+   
+        if (block.timestamp < _listingExpiration[tokenId]) {
+            // Listing has not expired, so a fee is required to delist
+            uint256 price = _tokenPrices[tokenId];
+            uint256 delistingFee = (price * 15) / 1000;  // 1.5% fee
+
+            //Ensure the seller sent enough Ether to cover the delisting fee
+            require(msg.value == delistingFee, "Incorrect delisting fee sent");
+        }
+
+        // Transfer the NFT back to the owner
+        address owner = msg.sender;
+        _safeTransfer(address(this), owner, tokenId, "");
+
+        //Mark the NFT as no longer listed
+        _listedTokens[tokenId] = false;
+
+   
+        emit NFTDelisted(owner, tokenId);
+    }
+
+    function getNFTDetails(uint256 tokenId) public view returns (
+        uint256 price, 
+        uint256 timeLeft, 
+        address owner, 
+        uint256 delistingFee
+    ) {
+        require(nfts[tokenId].listed, "This NFT is not currently listed for sale");
+
+        //Get the price from the NFT struct
+        price = nfts[tokenId].price;
+
+        //Calculate the time left before the listing expires
+        if (block.timestamp >= nfts[tokenId].expiration) {
+            timeLeft = 0; // Listing has already expired
+        } else {
+            timeLeft = nfts[tokenId].expiration - block.timestamp;
+        }
+
+        //Get the original owner from the NFT struct
+        owner = nfts[tokenId].owner;
+
+        //Calculate the delisting fee (1.5% of the price) if the listing hasn't expired
+        if (block.timestamp < nfts[tokenId].expiration) {
+            delistingFee = (price * 15) / 1000;  // 1.5% fee
+        } else {
+            delistingFee = 0;  // No fee if listing has expired
+        }
+
+        return (price, timeLeft, owner, delistingFee);
     }
 
 
